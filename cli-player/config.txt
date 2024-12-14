@@ -1,0 +1,2 @@
+ffmpegPath=ffmpeg
+exponential=2.7

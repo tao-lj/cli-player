@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <IncludePath>C:\src\SDL2\include;C:\src\opencv\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\src\SDL2\lib\x64;C:\src\opencv\x64\vc17\staticlib;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <Link>
+      <AdditionalDependencies>winmm.lib;SDL2.lib;ade.lib;IlmImf.lib;ittnotify.lib;libjpeg-turbo.lib;libopenjp2.lib;libpng.lib;libprotobuf.lib;libtiff.lib;libwebp.lib;opencv_calib3d4100.lib;opencv_core4100.lib;opencv_dnn4100.lib;opencv_features2d4100.lib;opencv_flann4100.lib;opencv_gapi4100.lib;opencv_highgui4100.lib;opencv_imgcodecs4100.lib;opencv_imgproc4100.lib;opencv_ml4100.lib;opencv_objdetect4100.lib;opencv_photo4100.lib;opencv_stitching4100.lib;opencv_video4100.lib;opencv_videoio4100.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <ClCompile>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <UndefinePreprocessorDefinitions>CV_STATIC;SDL_STATIC</UndefinePreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup />
+</Project>
