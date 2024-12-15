@@ -28,6 +28,7 @@ Uint32 wavLength;		// 音频长度
 bool isPaused = false;
 double currentTime, pausedTime;
 
+
 // 获取设置文件
 void get_cfg() {
 	ifstream cfg("config.txt");
@@ -54,9 +55,9 @@ void get_cfg() {
 	}
 }
 
-void init() {
-	get_cfg();
 
+// 初始化控制台与SDL2
+void init() {
 	// 启用控制台虚拟终端序列
 	DWORD dwMode = 0;
 	GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwMode);
@@ -69,6 +70,8 @@ void init() {
 	}
 }
 
+
+// 获取视频/音频文件
 void get_file(int argc, char* argv[]) {
 	// 获取视频文件路径
 	string videoName = "";
@@ -98,6 +101,7 @@ void get_file(int argc, char* argv[]) {
 	}
 }
 
+
 // 播放音频
 void play_audio() {
 	// 加载音频文件到缓冲区
@@ -121,10 +125,21 @@ void play_audio() {
 	SDL_PauseAudioDevice(deviceId, 0);
 }
 
-// 停止音频
+
+// 停止音频并清理资源
 void stop_audio() {
-	SDL_CloseAudioDevice(deviceId);	// 关闭音频设备
+	SDL_CloseAudioDevice(deviceId);
+	SDL_FreeWAV(wavBuffer);
+	remove(tmpAudioFile.c_str());
 }
+
+
+// 暂停/播放事件处理
+void pause_audio() {
+	isPaused = !isPaused;
+	SDL_PauseAudioDevice(deviceId, isPaused ? 1 : 0);
+}
+
 
 // 计算字符画尺寸
 void get_size(int& width, int& height) {
@@ -145,24 +160,16 @@ void get_size(int& width, int& height) {
 	}
 }
 
-// 暂停/播放事件处理
-void toggle_pause() {
-	isPaused = !isPaused;
-	SDL_PauseAudioDevice(deviceId, isPaused ? 1 : 0);
-}
 
 // 清理资源并退出
 void stop_and_exit() {
 	stop_audio();
 	puts("\33[0m\n\33[?25h\n\33c");
-	
-	remove(tmpAudioFile.c_str());
 	video.release();
-	SDL_FreeWAV(wavBuffer);
 	SDL_Quit();
-	
 	exit(0);
 }
+
 
 // 键盘事件处理
 void handle_keyboard() {
@@ -170,7 +177,7 @@ void handle_keyboard() {
 		char ch = _getch();
 		switch (ch) {
 		case SPACE:
-			toggle_pause();
+			pause_audio();
 			break;
 		case ESC:
 			stop_and_exit();
@@ -179,6 +186,7 @@ void handle_keyboard() {
 		}
 	}
 }
+
 
 void play() {
 	int width, height, d, lost = 0, totalFrames = video.get(CAP_PROP_FRAME_COUNT);
@@ -263,23 +271,14 @@ void play() {
 		img = frame; // 更新图像
 	}
 
-	stop_audio();
-	puts("\33[0m\n\33[?25h\n\33c"); // 恢复终端设置
-
 	return;
 }
 
+
 int main(int argc, char* argv[]) {
+	get_cfg();
 	init();
-
 	get_file(argc, argv);
-
 	play();
-	
-	remove(tmpAudioFile.c_str());
-	video.release();
-	SDL_FreeWAV(wavBuffer);
-	SDL_Quit();
-
-	return 0;
+	stop_and_exit();
 }
