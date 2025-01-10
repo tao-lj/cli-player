@@ -1,0 +1,3 @@
+C:/Users/tlj34/code/gcc/cli-player/build/CMakeFiles/cli-player.dir
+C:/Users/tlj34/code/gcc/cli-player/build/CMakeFiles/edit_cache.dir
+C:/Users/tlj34/code/gcc/cli-player/build/CMakeFiles/rebuild_cache.dir
