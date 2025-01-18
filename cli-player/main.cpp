@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include <conio.h>
 #include <iostream>
+#include <fstream>
 
 const int PAUSE_KEY = 32;
 const int ESC_KEY = 27;
@@ -28,6 +29,71 @@ cv::VideoCapture video;
 int videoFPS;
 int videoWidth;
 int videoHeight;
+
+// 读取设置文件
+int read_config(std::string filename) {
+	int missing = 0;
+	std::ifstream file(filename);
+	if (!file.is_open()) {
+		std::cerr << "WARNING: 无法打开配置文件: " << filename << ", 将使用默认配置." << std::endl;
+		return -1;
+	}
+
+	std::string line;
+	std::unordered_map<std::string, std::string> settings;
+
+	// 逐行读取设置文件
+	while (std::getline(file, line)) {
+		if (line.empty() || line[0] == '#') continue;
+
+		size_t equalPos = line.find('=');
+		if (equalPos != std::string::npos) {
+			std::string key = line.substr(0, equalPos);
+			std::string value = line.substr(equalPos + 1);
+			settings[key] = value;
+		}
+	}
+
+	// 初始化各项设置
+	if (settings.find("ffmpegPath") == settings.end()) {
+		std::cerr << "WARNING: 配置文件中缺少 'ffmpegPath' 项，已使用默认值: " << ffmpegPath << std::endl;
+		++missing;
+	}
+	else ffmpegPath = settings["ffmpegPath"];
+
+	if (settings.find("audioName") == settings.end()) {
+		std::cerr << "WARNING: 配置文件中缺少 'audioName' 项，已使用默认值: " << audioName << std::endl;
+		++missing;
+	}
+	else audioName = settings["audioName"];
+
+	if (settings.find("eps") == settings.end()) {
+		std::cerr << "WARNING: 配置文件中缺少 'eps' 项，已使用默认值: " << eps << std::endl;
+		++missing;
+	}
+	else {
+		try {
+			eps = std::stod(settings["eps"]);
+		}
+		catch (const std::invalid_argument& e) {
+			std::cerr << "WARNING: 'eps' 转换失败，已使用默认值: " << eps << std::endl;
+		}
+	}
+
+	if (settings.find("skipInterval") == settings.end()) {
+		std::cerr << "WARNING: 配置文件中缺少 'skipInterval' 项，已使用默认值: " << skipInterval << std::endl;
+	}
+	else {
+		try {
+			skipInterval = std::stod(settings["skipInterval"]);
+		}
+		catch (const std::invalid_argument& e) {
+			std::cerr << "WARNING: 'skipInterval' 转换失败，已使用默认值: " << skipInterval << std::endl;
+		}
+	}
+
+	return missing;
+}
 
 // 初始化视频/音频文件
 int init_resources(std::string videoName) {
@@ -97,25 +163,38 @@ void quit(int exitValue) {
 
 // 计算字符画尺寸
 void get_size(int& width, int& height) {
+	// 获取控制台输出缓冲区尺寸
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
-	width = (csbi.srWindow.Right - csbi.srWindow.Left) << 1;
-	height = (csbi.srWindow.Bottom - csbi.srWindow.Top) << 1;
 
-	double aspectRatio = (double)csbi.dwSize.X / width / csbi.dwSize.Y * height;
+	width = csbi.dwSize.X;
+	height = csbi.dwSize.Y << 1;
 
-	// 调整宽高比
-	if ((double)videoWidth / width > aspectRatio * videoHeight / height) {
-		height = aspectRatio * width / videoWidth * videoHeight;
-		height = MIN(height, videoHeight);
-		height &= ~1; // 确保高度为偶数
+	// 获取控制台字符尺寸
+	HDC hdc = GetDC(NULL);
+	HFONT hFont = (HFONT)GetCurrentObject(hdc, OBJ_FONT);
+	SelectObject(hdc, hFont);
+	SIZE size;
+	GetTextExtentPoint32(hdc, L"A", 1, &size);
+
+	int charWidth = size.cx;
+	int charHeight = size.cy >> 1;
+
+	int windowWidth = charWidth * width;
+	int windowHeight = charHeight * height;
+	float aspectRatio = 1.0f * videoWidth / videoHeight;
+
+	if (1.0f * windowWidth / windowHeight >= aspectRatio) {
+		width = 1.0f * windowHeight * aspectRatio / charWidth;
 	}
 	else {
-		width = (double)height / videoHeight * videoWidth / aspectRatio;
-		width = MIN(width, videoWidth);
+		height = 1.0f * windowWidth / aspectRatio / charHeight;
+		height &= ~1; // 确保高度为偶数
 	}
-}
 
+	width = MIN(width, videoWidth);
+	height = MIN(height, videoHeight);
+}
 // 计算颜色差异是否超过阈值
 bool cmp(cv::Vec3b x, cv::Vec3b y, int threshold) {
 	int dr = x[2] - y[2];
@@ -219,10 +298,11 @@ int render_frame(cv::Mat& lastFrame, unsigned long long& lastIdx) {
 	}
 
 	// 打印字符画
-	if (!colorChanged) puts(output.c_str());
+	if (!colorChanged) fputs(output.c_str(), stdout);
 
 	lastFrame = frame;
 	lastIdx = idx;
+
 	return 0;
 }
 
@@ -302,6 +382,9 @@ void play() {
 }
 
 int main(int argc, char* argv[]) {
+	std::string configPath = "config.txt";
+	read_config(configPath);
+
 	std::string videoName = "";
 	// 获取视频文件名称
 	if (argc < 2) {
@@ -318,7 +401,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (init_resources(videoName)) {
-		system("pause");
 		return -1;
 	}
 

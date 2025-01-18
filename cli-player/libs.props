@@ -8,7 +8,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <Link>
-      <AdditionalDependencies>SetupAPI.lib;imm32.lib;version.lib;winmm.lib;SDL2-static.lib;SDL2_mixer.lib;ade.lib;IlmImf.lib;ittnotify.lib;libjpeg-turbo.lib;libopenjp2.lib;libpng.lib;libprotobuf.lib;libtiff.lib;libwebp.lib;opencv_calib3d4100.lib;opencv_core4100.lib;opencv_dnn4100.lib;opencv_features2d4100.lib;opencv_flann4100.lib;opencv_gapi4100.lib;opencv_highgui4100.lib;opencv_imgcodecs4100.lib;opencv_imgproc4100.lib;opencv_ml4100.lib;opencv_objdetect4100.lib;opencv_photo4100.lib;opencv_stitching4100.lib;opencv_video4100.lib;opencv_videoio4100.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>SetupAPI.lib;imm32.lib;version.lib;winmm.lib;SDL2main.lib;SDL2-static.lib;SDL2_mixer.lib;ade.lib;IlmImf.lib;ittnotify.lib;libjpeg-turbo.lib;libopenjp2.lib;libpng.lib;libprotobuf.lib;libtiff.lib;libwebp.lib;opencv_calib3d4100.lib;opencv_core4100.lib;opencv_dnn4100.lib;opencv_features2d4100.lib;opencv_flann4100.lib;opencv_gapi4100.lib;opencv_highgui4100.lib;opencv_imgcodecs4100.lib;opencv_imgproc4100.lib;opencv_ml4100.lib;opencv_objdetect4100.lib;opencv_photo4100.lib;opencv_stitching4100.lib;opencv_video4100.lib;opencv_videoio4100.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
