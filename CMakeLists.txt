@@ -18,14 +18,14 @@ pkg_check_modules(opencv4 REQUIRED opencv4)
 
 # 设置头文件目录
 include_directories(
-  ${SDL2_mixer_INCLUDE_DIRS}
-  ${opencv4_INCLUDE_DIRS}
+	${SDL2_mixer_INCLUDE_DIRS}
+	${opencv4_INCLUDE_DIRS}
 )
 
 # 设置库目录
 link_directories(
-  ${SDL2_mixer_LIBRARY_DIRS}
-  ${opencv4_LIBRARY_DIRS}
+	${SDL2_mixer_LIBRARY_DIRS}
+	${opencv4_LIBRARY_DIRS}
 )
 
 # 查找所有源代码文件
@@ -36,8 +36,8 @@ add_executable(cli-player ${SRCS})
 
 # 链接库
 target_link_libraries(cli-player
-  ${SDL2_mixer_LIBRARIES}
-  ${opencv4_LIBRARIES}
+	${SDL2_mixer_LIBRARIES}
+	${opencv4_LIBRARIES}
 )
 
 # 设置清理目标
