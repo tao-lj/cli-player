@@ -448,6 +448,7 @@ CMakeFiles/cli-player.dir/main.cpp.obj
  C:/msys64/mingw64/include/rpcnterr.h
  C:/msys64/mingw64/include/rpcsal.h
  C:/msys64/mingw64/include/sal.h
+ C:/msys64/mingw64/include/sched.h
  C:/msys64/mingw64/include/sdkddkver.h
  C:/msys64/mingw64/include/sdks/_mingw_ddk.h
  C:/msys64/mingw64/include/sec_api/conio_s.h

@@ -447,6 +447,7 @@ CMakeFiles/cli-player.dir/main.cpp.obj: C:/Users/tlj34/code/gcc/cli-player/main.
   C:/msys64/mingw64/include/rpcnterr.h \
   C:/msys64/mingw64/include/rpcsal.h \
   C:/msys64/mingw64/include/sal.h \
+  C:/msys64/mingw64/include/sched.h \
   C:/msys64/mingw64/include/sdkddkver.h \
   C:/msys64/mingw64/include/sdks/_mingw_ddk.h \
   C:/msys64/mingw64/include/sec_api/conio_s.h \
@@ -1283,8 +1284,6 @@ C:/msys64/mingw64/include/c++/14.2.0/tr1/gamma.tcc:
 
 C:/msys64/mingw64/include/c++/14.2.0/tr1/legendre_function.tcc:
 
-C:/msys64/mingw64/include/winuser.h:
-
 C:/msys64/mingw64/include/c++/14.2.0/tr1/modified_bessel_func.tcc:
 
 C:/msys64/mingw64/include/c++/14.2.0/tr1/poly_laguerre.tcc:
@@ -1685,6 +1684,8 @@ C:/msys64/mingw64/include/rpcndr.h:
 
 C:/msys64/mingw64/include/rpcnsi.h:
 
+C:/msys64/mingw64/include/sched.h:
+
 C:/msys64/mingw64/include/sdks/_mingw_ddk.h:
 
 C:/msys64/mingw64/include/sec_api/stdlib_s.h:
@@ -1746,6 +1747,8 @@ C:/msys64/mingw64/include/winreg.h:
 C:/msys64/mingw64/include/winsock.h:
 
 C:/msys64/mingw64/include/winsvc.h:
+
+C:/msys64/mingw64/include/winuser.h:
 
 C:/msys64/mingw64/include/winver.h:
 

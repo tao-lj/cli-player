@@ -25,6 +25,7 @@ double pauseTime;
 std::chrono::system_clock::time_point startTime;
 
 cv::VideoCapture video;
+cv::Size outSize;
 
 int videoFPS;
 int videoWidth;
@@ -158,38 +159,29 @@ void quit(int exitValue) {
 }
 
 // 计算字符画尺寸
-void get_size(int& width, int& height) {
-	// 获取控制台输出缓冲区尺寸
+void get_size() {
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
-	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
-	
-	width = csbi.dwSize.X;
-	height = csbi.dwSize.Y << 1;
 
-	// 获取控制台字符尺寸
-	HDC hdc = GetDC(NULL);
-	HFONT hFont = (HFONT)GetCurrentObject(hdc, OBJ_FONT);
-	SelectObject(hdc, hFont);
-	SIZE size;
-	GetTextExtentPoint32(hdc, "A", 1, &size);
-	
-	int charWidth = size.cx;
-	int charHeight = size.cy >> 1;
-
-	int windowWidth = charWidth * width;
-	int windowHeight = charHeight * height;
-	float aspectRatio = 1.0f * videoWidth / videoHeight;
-
-	if (1.0f * windowWidth / windowHeight >= aspectRatio) {
-		width = 1.0f * windowHeight * aspectRatio / charWidth;
-	} else {
-		height = 1.0f * windowWidth / aspectRatio / charHeight;
-		height &= ~1; // 确保高度为偶数
+	if (!GetConsoleScreenBufferInfo(hConsole, &csbi)) {
+		std::cerr << "ERROR: 无法获取控终端尺寸";
+		quit(-1);
 	}
 
-	width = MIN(width, videoWidth);
-	height = MIN(height, videoHeight);
+	float bufferWidth = MIN(csbi.srWindow.Right - csbi.srWindow.Left, videoWidth);
+	float bufferHeight = MIN((csbi.srWindow.Bottom - csbi.srWindow.Top) << 1, videoHeight);
+
+	if (bufferWidth / videoWidth > bufferHeight / videoHeight) {
+		outSize.height = bufferHeight;
+		outSize.width = bufferHeight * videoWidth / videoHeight;
+	} else {
+		outSize.width = bufferWidth;
+		outSize.height =  bufferHeight *  videoHeight / videoWidth;
+	}
+
+	outSize.height &= ~1;
 }
+
 // 计算颜色差异是否超过阈值
 bool cmp(cv::Vec3b x, cv::Vec3b y, int threshold) {
 	int dr = x[2] - y[2];
@@ -216,8 +208,7 @@ int render_frame(cv::Mat& lastFrame, unsigned long long& lastIdx) {
 	bool colorChanged = true;
 	long long lost = idx - lastIdx;
 	int threshold = MIN(pow(lost, eps), 128); // 根据丢帧数调整颜色差异判断阈值
-	int width, height;
-	get_size(width, height);
+	int width = outSize.width, height = outSize.height;
 
 	// 获取当前帧
 	if (lost > 0) {
@@ -240,7 +231,7 @@ int render_frame(cv::Mat& lastFrame, unsigned long long& lastIdx) {
 		quit(-1);
 	}
 
-	cv::resize(frame, frame, { width, height });
+	cv::resize(frame, frame, outSize);
 
 	// 如果尺寸改变则清屏
 	if (lastFrame.cols != width || lastFrame.rows != height) {
@@ -366,6 +357,8 @@ void play() {
 		} else {
 			currentTime = std::chrono::duration<double>(std::chrono::system_clock::now() - startTime).count() - pauseTime;
 		}
+		
+		get_size();
 		if (render_frame(lastFrame, lastIdx)) quit(0);
 	}
 }
