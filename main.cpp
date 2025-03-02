@@ -1,9 +1,84 @@
 #include <opencv2/opencv.hpp>
 #include <SDL_mixer.h>
-#include <Windows.h>
-#include <conio.h>
 #include <iostream>
 #include <fstream>
+
+#ifdef _WIN32
+
+#include <Windows.h>
+#include <conio.h>
+
+#elif __linux__
+
+#include <sys/ioctl.h>
+#include <termios.h>
+#include <signal.h>
+#include <unistd.h>
+#include <poll.h>
+
+void setRawMode(bool enable) {
+	static struct termios oldt, newt;
+	if (enable) {
+		tcgetattr(STDIN_FILENO, &oldt);	// è·å–å½“å‰ç»ˆç«¯å±æ€§
+		newt = oldt;
+		newt.c_lflag &= ~(ICANON | ECHO);  // å…³é—­è¡Œç¼“å†² & å…³é—­å›æ˜¾
+		tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+	} else {
+		tcsetattr(STDIN_FILENO, TCSANOW, &oldt);  // æ¢å¤åŸæ¥çš„ç»ˆç«¯è®¾ç½®
+	}
+}
+
+bool _kbhit() {
+	struct pollfd pfds[1];
+	pfds[0].fd = STDIN_FILENO;
+	pfds[0].events = POLLIN;
+
+	return poll(pfds, 1, 0) > 0;
+}
+
+int _getch() {
+	int ch;
+	read(STDIN_FILENO, &ch, 1);
+
+	if (ch == 27) {
+		usleep(10000);
+		if (!_kbhit()) return 27;
+
+		char seq[2] = {0};
+		
+		if (read(STDIN_FILENO, &seq[0], 1) == 0) return 27;
+		if (read(STDIN_FILENO, &seq[1], 1) == 0) return 27;
+
+		if (seq[0] == '[') {
+			switch (seq[1]) {
+				case 'A': return 72;
+				case 'B': return 80;
+				case 'C': return 77;
+				case 'D': return 75;
+				case 'H': return 71;
+				case 'F': return 79;
+				default: return 27;
+			}
+		}
+
+		return 27;
+	}
+	
+	return ch;
+}
+
+void quit(int exitValue);
+void get_size();
+
+void signal_hander(int sig) {
+	quit(sig);
+}
+
+void handle_winch(int sig) {
+	get_size();
+}
+
+#endif
 
 const int PAUSE_KEY = 32;
 const int ESC_KEY = 27;
@@ -31,145 +106,50 @@ int videoFPS;
 int videoWidth;
 int videoHeight;
 
-// ¶ÁÈ¡ÉèÖÃÎÄ¼ş
-int read_config(std::string filename) {
-	int missing = 0;
-	std::ifstream file(filename);
-	if (!file.is_open()) {
-		std::cerr << "WARNING: ÎŞ·¨´ò¿ªÅäÖÃÎÄ¼ş: " << filename << ", ½«Ê¹ÓÃÄ¬ÈÏÅäÖÃ." << std::endl;
-		return -1;
-	}
-
-	std::string line;
-	std::unordered_map<std::string, std::string> settings;
-
-	// ÖğĞĞ¶ÁÈ¡ÉèÖÃÎÄ¼ş
-	while (std::getline(file, line)) {
-		if (line.empty() || line[0] == '#') continue;
-
-		size_t equalPos = line.find('=');
-		if (equalPos != std::string::npos) {
-			std::string key = line.substr(0, equalPos);
-			std::string value = line.substr(equalPos + 1);
-			settings[key] = value;
-		}
-	}
-
-	// ³õÊ¼»¯¸÷ÏîÉèÖÃ
-	if (settings.find("ffmpegPath") == settings.end()) {
-		std::cerr << "WARNING: ÅäÖÃÎÄ¼şÖĞÈ±ÉÙ 'ffmpegPath' Ïî£¬ÒÑÊ¹ÓÃÄ¬ÈÏÖµ: " << ffmpegPath << std::endl;
-		++missing;
-	} else ffmpegPath = settings["ffmpegPath"];
-
-	if (settings.find("audioName") == settings.end()) {
-		std::cerr << "WARNING: ÅäÖÃÎÄ¼şÖĞÈ±ÉÙ 'audioName' Ïî£¬ÒÑÊ¹ÓÃÄ¬ÈÏÖµ: " << audioName << std::endl;
-		++missing;
-	} else audioName = settings["audioName"];
-
-	if (settings.find("eps") == settings.end()) {
-		std::cerr << "WARNING: ÅäÖÃÎÄ¼şÖĞÈ±ÉÙ 'eps' Ïî£¬ÒÑÊ¹ÓÃÄ¬ÈÏÖµ: " << eps << std::endl;
-		++missing;
-	} else {
-		try {
-			eps = std::stod(settings["eps"]);
-		}
-		catch (const std::invalid_argument& e) {
-			std::cerr << "WARNING: 'eps' ×ª»»Ê§°Ü£¬ÒÑÊ¹ÓÃÄ¬ÈÏÖµ: " << eps << std::endl;
-		}
-	}
-
-	if (settings.find("skipInterval") == settings.end()) {
-		std::cerr << "WARNING: ÅäÖÃÎÄ¼şÖĞÈ±ÉÙ 'skipInterval' Ïî£¬ÒÑÊ¹ÓÃÄ¬ÈÏÖµ: " << skipInterval << std::endl;
-	} else {
-		try {
-			skipInterval = std::stod(settings["skipInterval"]);
-		}
-		catch (const std::invalid_argument& e) {
-			std::cerr << "WARNING: 'skipInterval' ×ª»»Ê§°Ü£¬ÒÑÊ¹ÓÃÄ¬ÈÏÖµ: " << skipInterval << std::endl;
-		}
-	}
-
-	return missing;
-}
-
-// ³õÊ¼»¯ÊÓÆµ/ÒôÆµÎÄ¼ş
-int init_resources(std::string videoName) {
-	// ÆôÓÃ¿ØÖÆÌ¨ĞéÄâÖÕ¶ËĞòÁĞ
-	DWORD dwMode = 0;
-	GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwMode);
-	SetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), dwMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-
-	// ´ò¿ªÊÓÆµÎÄ¼ş
-	if (!video.open(videoName)) {
-		std::cerr << "ERROR: ÎŞ·¨´ò¿ªÊÓÆµÎÄ¼ş" << std::endl;
-		return -1;
-	}
-
-	// ÌáÈ¡ÒôÆµÎÄ¼ş
-	std::string command = ffmpegPath + " -i \"" + videoName + "\" -f mp3 -vn " + audioName;
-	if (system(command.c_str()) != 0) { // ¼ì²é ffmpeg ÃüÁîÊÇ·ñÖ´ĞĞ³É¹¦
-		std::cerr << "ERROR: ÎŞ·¨ÌáÈ¡ÒôÆµÎÄ¼ş" << std::endl;
-		video.release();
-		return -1;
-	}
-
-	// ³õÊ¼»¯SDL_mixer
-	if (Mix_Init(MIX_INIT_MP3) < 0) {
-		std::cerr << "ERROR£ºÎŞ·¨³õÊ¼»¯SDL_mixer:" << Mix_GetError() << std::endl;
-		video.release();
-		return -1;
-	}
-
-	// ¿ªÆôÒôÆµÉè±¸
-	if (Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) < 0) {
-		std::cerr << "ERROR: ÎŞ·¨¿ªÆôÒôÆµÉè±¸:" << Mix_GetError() << std::endl;
-		video.release();
-		Mix_Quit();
-		return -1;
-	}
-
-	//¼ÓÔØÒôÆµÎÄ¼ş
-	music = Mix_LoadMUS(audioName.c_str());
-	if (music == NULL) {
-		std::cerr << "ERROR: ÎŞ·¨¼ÓÔØÒôÆµÎÄ¼ş:" << Mix_GetError() << std::endl;
-		video.release();
-		Mix_CloseAudio();
-		Mix_Quit();
-		return -1;
-	}
-
-	// ±£´æÊÓÆµĞÅÏ¢
-	videoFPS = video.get(cv::CAP_PROP_FPS);
-	videoWidth = video.get(cv::CAP_PROP_FRAME_WIDTH);
-	videoHeight = video.get(cv::CAP_PROP_FRAME_HEIGHT);
-
-	return 0;
-}
-
-// ÇåÀí×ÊÔ´²¢ÍË³ö
+// æ¸…ç†èµ„æºå¹¶é€€å‡º
 void quit(int exitValue) {
+#ifdef __linux__
+	setRawMode(false);
+#endif
+
 	video.release();
 	Mix_HaltMusic();
 	Mix_FreeMusic(music);
 	Mix_CloseAudio();
 	Mix_Quit();
 	remove(audioName.c_str());
-	puts("\33[0m\n\33[?25h"); // »Ö¸´¿ØÖÆÌ¨ÉèÖÃ
+	puts("\33[0m\n\33[?25h"); // æ¢å¤æ§åˆ¶å°è®¾ç½®
 	exit(exitValue);
 }
 
-// ¼ÆËã×Ö·û»­³ß´ç
+// è®¡ç®—å­—ç¬¦ç”»å°ºå¯¸
 void get_size() {
+#ifdef _WIN32
+
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 
 	if (!GetConsoleScreenBufferInfo(hConsole, &csbi)) {
-		std::cerr << "ERROR: ÎŞ·¨»ñÈ¡¿ØÖÕ¶Ë³ß´ç";
+		std::cerr << "ERROR: æ— æ³•è·å–æ§ç»ˆç«¯å°ºå¯¸";
 		quit(-1);
 	}
 
-	float bufferWidth = MIN(csbi.srWindow.Right - csbi.srWindow.Left, videoWidth);
-	float bufferHeight = MIN((csbi.srWindow.Bottom - csbi.srWindow.Top) << 1, videoHeight);
+	float bufferWidth = csbi.srWindow.Right - csbi.srWindow.Left;
+	float bufferHeight = (csbi.srWindow.Bottom - csbi.srWindow.Top) << 1;
+
+#elif __linux__
+
+	struct winsize size;
+
+	ioctl(STDIN_FILENO, TIOCGWINSZ, &size);
+	
+	float bufferWidth = size.ws_col;
+	float bufferHeight = size.ws_row << 1;
+
+#endif
+
+	bufferWidth = MIN(bufferWidth, videoWidth);
+	bufferHeight = MIN(bufferHeight, videoHeight);
 
 	if (bufferWidth / videoWidth > bufferHeight / videoHeight) {
 		outSize.height = bufferHeight;
@@ -182,7 +162,7 @@ void get_size() {
 	outSize.height &= ~1;
 }
 
-// ¼ÆËãÑÕÉ«²îÒìÊÇ·ñ³¬¹ıãĞÖµ
+// è®¡ç®—é¢œè‰²å·®å¼‚æ˜¯å¦è¶…è¿‡é˜ˆå€¼
 bool cmp(cv::Vec3b x, cv::Vec3b y, int threshold) {
 	int dr = x[2] - y[2];
 	int dg = x[1] - y[1];
@@ -191,31 +171,31 @@ bool cmp(cv::Vec3b x, cv::Vec3b y, int threshold) {
 	return distSq > threshold * threshold;
 }
 
-// ´òÓ¡µ±Ç°Ö¡
+// æ‰“å°å½“å‰å¸§
 int render_frame(cv::Mat& lastFrame, unsigned long long& lastIdx) {
-	// »ñÈ¡µ±Ç°Ê±¼äËù¶ÔÓ¦µÄÖ¡µÄ±àºÅ
+	// è·å–å½“å‰æ—¶é—´æ‰€å¯¹åº”çš„å¸§çš„ç¼–å·
 	unsigned long long idx = videoFPS * currentTime;
 
 	if (idx < 0 || idx >= video.get(cv::CAP_PROP_FRAME_COUNT)) return 1;
 	if (lastIdx == idx && lastIdx && !isPaused) return 0;
 
 	cv::Mat frame;
-	cv::Vec3b bgColor = { 0, 0, 0 };	// ±³¾°ÑÕÉ«
-	cv::Vec3b txtColor = { 0, 0, 0 };	// ÎÄ±¾ÑÕÉ«
+	cv::Vec3b bgColor = { 0, 0, 0 };	// èƒŒæ™¯é¢œè‰²
+	cv::Vec3b txtColor = { 0, 0, 0 };	// æ–‡æœ¬é¢œè‰²
 	std::string output = "";
 	bool isOpened = true;
 	bool firstFrame = true;
 	bool colorChanged = true;
 	long long lost = idx - lastIdx;
-	int threshold = MIN(pow(lost, eps), 128); // ¸ù¾İ¶ªÖ¡Êıµ÷ÕûÑÕÉ«²îÒìÅĞ¶ÏãĞÖµ
+	int threshold = MIN(pow(lost, eps), 128); // æ ¹æ®ä¸¢å¸§æ•°è°ƒæ•´é¢œè‰²å·®å¼‚åˆ¤æ–­é˜ˆå€¼
 	int width = outSize.width, height = outSize.height;
 
-	// »ñÈ¡µ±Ç°Ö¡
+	// è·å–å½“å‰å¸§
 	if (lost > 0) {
 		for (int i = 0; i < lost; ++i) {
 			if (!video.grab()) {
-				puts("\33[0m\n\33[?25h"); // »Ö¸´¿ØÖÆÌ¨ÉèÖÃ
-				std::cerr << "ERROR: ¶ÁÈ¡ÊÓÆµÊ±³ö´í" << std::endl;
+				puts("\33[0m\n\33[?25h"); // æ¢å¤æ§åˆ¶å°è®¾ç½®
+				std::cerr << "ERROR: è¯»å–è§†é¢‘æ—¶å‡ºé”™" << std::endl;
 				quit(-1);
 			}
 		}
@@ -227,26 +207,26 @@ int render_frame(cv::Mat& lastFrame, unsigned long long& lastIdx) {
 
 	if (!isOpened) {
 		puts("\33[0m\n\33[?25h");
-		std::cerr << "ERROR: ½âÂëÊÓÆµÊ±³ö´í" << std::endl;
+		std::cerr << "ERROR: è§£ç è§†é¢‘æ—¶å‡ºé”™" << std::endl;
 		quit(-1);
 	}
 
 	cv::resize(frame, frame, outSize);
 
-	// Èç¹û³ß´ç¸Ä±äÔòÇåÆÁ
+	// å¦‚æœå°ºå¯¸æ”¹å˜åˆ™æ¸…å±
 	if (lastFrame.cols != width || lastFrame.rows != height) {
 		lastFrame = cv::Mat(width, height, CV_8UC1, cv::Scalar(0, 0, 0));
 		puts("\33c");
 	}
 
-	// Éú³É×Ö·û»­
+	// ç”Ÿæˆå­—ç¬¦ç”»
 	for (int i = 0; i < height; i += 2) {
 		for (int j = 0; j < width; ++j) {
 			cv::Vec3b nbgColor = frame.at<cv::Vec3b>(i, j);
 			cv::Vec3b ntxtColor = frame.at<cv::Vec3b>(i + 1, j);
 
 			if (!cmp(nbgColor, lastFrame.at<cv::Vec3b>(i, j), threshold) &&
-				!cmp(ntxtColor, lastFrame.at<cv::Vec3b>(i + 1, j), threshold)) { // ÑÕÉ«Î´¸Ä±äÔòÌø¹ı
+				!cmp(ntxtColor, lastFrame.at<cv::Vec3b>(i + 1, j), threshold)) { // é¢œè‰²æœªæ”¹å˜åˆ™è·³è¿‡
 				frame.at<cv::Vec3b>(i, j) = lastFrame.at<cv::Vec3b>(i, j);
 				frame.at<cv::Vec3b>(i + 1, j) = lastFrame.at<cv::Vec3b>(i + 1, j);
 				firstFrame = true;
@@ -255,10 +235,10 @@ int render_frame(cv::Mat& lastFrame, unsigned long long& lastIdx) {
 
 			if (firstFrame) {
 				firstFrame = colorChanged = false;
-				output += "\33[" + std::to_string(i / 2 + 1) + ';' + std::to_string(j + 1) + 'H'; // ÒÆ¶¯¹â±ê
+				output += "\33[" + std::to_string(i / 2 + 1) + ';' + std::to_string(j + 1) + 'H'; // ç§»åŠ¨å…‰æ ‡
 			}
 
-			if (cmp(nbgColor, bgColor, threshold)) { // ¸Ä±ä±³¾°ÑÕÉ«
+			if (cmp(nbgColor, bgColor, threshold)) { // æ”¹å˜èƒŒæ™¯é¢œè‰²
 				output += "\33[48;2;" + std::to_string(nbgColor[2]) + ';'
 					+ std::to_string(nbgColor[1]) + ';'
 					+ std::to_string(nbgColor[0]) + 'm';
@@ -267,7 +247,7 @@ int render_frame(cv::Mat& lastFrame, unsigned long long& lastIdx) {
 				frame.at<cv::Vec3b>(i, j) = bgColor;
 			}
 
-			if (cmp(ntxtColor, txtColor, threshold)) { // ¸Ä±äÎÄ±¾ÑÕÉ«
+			if (cmp(ntxtColor, txtColor, threshold)) { // æ”¹å˜æ–‡æœ¬é¢œè‰²
 				output += "\33[38;2;" + std::to_string(ntxtColor[2]) + ';'
 					+ std::to_string(ntxtColor[1]) + ';'
 					+ std::to_string(ntxtColor[0]) + 'm';
@@ -275,12 +255,12 @@ int render_frame(cv::Mat& lastFrame, unsigned long long& lastIdx) {
 			} else {
 				frame.at<cv::Vec3b>(i + 1, j) = txtColor;
 			}
-			output += "¨{";
+			output += "â–„";
 		}
 		if (!firstFrame && i + 2 < height) output += '\n';
 	}
 
-	// ´òÓ¡×Ö·û»­
+	// æ‰“å°å­—ç¬¦ç”»
 	if (!colorChanged) fputs(output.c_str(), stdout);
 
 	lastFrame = frame;
@@ -289,22 +269,22 @@ int render_frame(cv::Mat& lastFrame, unsigned long long& lastIdx) {
 	return 0;
 }
 
-// ¼üÅÌÊÂ¼ş´¦Àí
+// é”®ç›˜äº‹ä»¶å¤„ç†
 void handle_keyboard() {
 	if (!_kbhit()) return;
 
 	int ch = _getch();
 
 	switch (ch) {
-	case PAUSE_KEY:		// ÔİÍ£»ò»Ö¸´²¥·Å
+	case PAUSE_KEY:		// æš‚åœæˆ–æ¢å¤æ’­æ”¾
 		isPaused = !isPaused;
 		if (isPaused) Mix_PauseMusic();
 		else Mix_ResumeMusic();
 		break;
-	case ESC_KEY:		// ÍË³ö²¥·Å
+	case ESC_KEY:		// é€€å‡ºæ’­æ”¾
 		quit(0);
 		break;
-	case FORWARD_KEY:	// ¿ì½øÊÓÆµ
+	case FORWARD_KEY:	// å¿«è¿›è§†é¢‘
 		currentTime += skipInterval;
 		if (currentTime < Mix_MusicDuration(music)) {
 			Mix_SetMusicPosition(currentTime);
@@ -315,7 +295,7 @@ void handle_keyboard() {
 			pauseTime = std::chrono::duration<double>(std::chrono::system_clock::now() - startTime).count() - currentTime;
 		}
 		break;
-	case BACKWARD_KEY:	// ¿ìÍËÊÓÆµ
+	case BACKWARD_KEY:	// å¿«é€€è§†é¢‘
 		currentTime -= skipInterval;
 		if (currentTime > 0) {
 			Mix_SetMusicPosition(currentTime);
@@ -332,24 +312,29 @@ void handle_keyboard() {
 	}
 }
 
-// ÊÓÆµ²¥·ÅÖ÷º¯Êı
+// è§†é¢‘æ’­æ”¾ä¸»å‡½æ•°
 void play() {
+#ifdef __linux__
+	setRawMode(true);
+#endif
+
 	cv::Mat lastFrame = cv::Mat(1, 1, CV_8UC1, cv::Scalar(0, 0, 0));
 	unsigned long long lastIdx = 0;
 
-	// ÇåÆÁ²¢Òş²Ø¹â±ê
+	// æ¸…å±å¹¶éšè—å…‰æ ‡
 	puts("\33c\n\33[?25l\n\33[30;40m");
 
-	// ²¥·ÅÒôÀÖ
+	// æ’­æ”¾éŸ³ä¹
 	if (Mix_PlayMusic(music, -1) == -1) {
 		puts("\33[0m\n\33[?25h");
-		printf("ERROR: ÎŞ·¨²¥·ÅÒôÆµ %s\n", Mix_GetError());
+		printf("ERROR: æ— æ³•æ’­æ”¾éŸ³é¢‘ %s\n", Mix_GetError());
 		quit(-1);
 	}
 
 	startTime = std::chrono::system_clock::now();
+	get_size();
 
-	// ÊÓÆµ²¥·ÅÖ÷Ñ­»·
+	// è§†é¢‘æ’­æ”¾ä¸»å¾ªç¯
 	while (true) {
 		handle_keyboard();
 		if (isPaused) {
@@ -357,20 +342,148 @@ void play() {
 		} else {
 			currentTime = std::chrono::duration<double>(std::chrono::system_clock::now() - startTime).count() - pauseTime;
 		}
-		
+
+#ifdef _WIN32
 		get_size();
+#endif
+
 		if (render_frame(lastFrame, lastIdx)) quit(0);
 	}
 }
 
+// è¯»å–è®¾ç½®æ–‡ä»¶
+int read_config(std::string filename) {
+	int missing = 0;
+	std::ifstream file(filename);
+	if (!file.is_open()) {
+		std::cerr << "WARNING: æ— æ³•æ‰“å¼€é…ç½®æ–‡ä»¶: " << filename << ", å°†ä½¿ç”¨é»˜è®¤é…ç½®." << std::endl;
+		return -1;
+	}
+
+	std::string line;
+	std::unordered_map<std::string, std::string> settings;
+
+	// é€è¡Œè¯»å–è®¾ç½®æ–‡ä»¶
+	while (std::getline(file, line)) {
+		if (line.empty() || line[0] == '#') continue;
+
+		size_t equalPos = line.find('=');
+		if (equalPos != std::string::npos) {
+			std::string key = line.substr(0, equalPos);
+			std::string value = line.substr(equalPos + 1);
+			settings[key] = value;
+		}
+	}
+
+	// åˆå§‹åŒ–å„é¡¹è®¾ç½®
+	if (settings.find("ffmpegPath") == settings.end()) {
+		std::cerr << "WARNING: é…ç½®æ–‡ä»¶ä¸­ç¼ºå°‘ 'ffmpegPath' é¡¹ï¼Œå·²ä½¿ç”¨é»˜è®¤å€¼: " << ffmpegPath << std::endl;
+		++missing;
+	} else ffmpegPath = settings["ffmpegPath"];
+
+	if (settings.find("audioName") == settings.end()) {
+		std::cerr << "WARNING: é…ç½®æ–‡ä»¶ä¸­ç¼ºå°‘ 'audioName' é¡¹ï¼Œå·²ä½¿ç”¨é»˜è®¤å€¼: " << audioName << std::endl;
+		++missing;
+	} else audioName = settings["audioName"];
+
+	if (settings.find("eps") == settings.end()) {
+		std::cerr << "WARNING: é…ç½®æ–‡ä»¶ä¸­ç¼ºå°‘ 'eps' é¡¹ï¼Œå·²ä½¿ç”¨é»˜è®¤å€¼: " << eps << std::endl;
+		++missing;
+	} else {
+		try {
+			eps = std::stod(settings["eps"]);
+		}
+		catch (const std::invalid_argument& e) {
+			std::cerr << "WARNING: 'eps' è½¬æ¢å¤±è´¥ï¼Œå·²ä½¿ç”¨é»˜è®¤å€¼: " << eps << std::endl;
+		}
+	}
+
+	if (settings.find("skipInterval") == settings.end()) {
+		std::cerr << "WARNING: é…ç½®æ–‡ä»¶ä¸­ç¼ºå°‘ 'skipInterval' é¡¹ï¼Œå·²ä½¿ç”¨é»˜è®¤å€¼: " << skipInterval << std::endl;
+	} else {
+		try {
+			skipInterval = std::stod(settings["skipInterval"]);
+		}
+		catch (const std::invalid_argument& e) {
+			std::cerr << "WARNING: 'skipInterval' è½¬æ¢å¤±è´¥ï¼Œå·²ä½¿ç”¨é»˜è®¤å€¼: " << skipInterval << std::endl;
+		}
+	}
+
+	return missing;
+}
+
+// åˆå§‹åŒ–è§†é¢‘/éŸ³é¢‘æ–‡ä»¶
+int init_resources(std::string videoName) {
+#ifdef _WIN32
+	// å¯ç”¨æ§åˆ¶å°è™šæ‹Ÿç»ˆç«¯åºåˆ—
+	DWORD dwMode = 0;
+	GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &dwMode);
+	SetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), dwMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+#elif __linux__
+	signal(SIGINT, signal_hander);
+	signal(SIGWINCH, handle_winch);
+#endif
+
+	// æ‰“å¼€è§†é¢‘æ–‡ä»¶
+	if (!video.open(videoName)) {
+		std::cerr << "ERROR: æ— æ³•æ‰“å¼€è§†é¢‘æ–‡ä»¶" << std::endl;
+		return -1;
+	}
+
+	// æå–éŸ³é¢‘æ–‡ä»¶
+	std::string command = ffmpegPath + " -i \"" + videoName + "\" -f mp3 -vn " + audioName;
+	if (system(command.c_str()) != 0) { // æ£€æŸ¥ ffmpeg å‘½ä»¤æ˜¯å¦æ‰§è¡ŒæˆåŠŸ
+		std::cerr << "ERROR: æ— æ³•æå–éŸ³é¢‘æ–‡ä»¶" << std::endl;
+		video.release();
+		return -1;
+	}
+
+	// åˆå§‹åŒ–SDL_mixer
+	if (Mix_Init(MIX_INIT_MP3) < 0) {
+		std::cerr << "ERRORï¼šæ— æ³•åˆå§‹åŒ–SDL_mixer:" << Mix_GetError() << std::endl;
+		video.release();
+		return -1;
+	}
+
+	// å¼€å¯éŸ³é¢‘è®¾å¤‡
+	if (Mix_OpenAudio(22050, MIX_DEFAULT_FORMAT, 2, 4096) < 0) {
+		std::cerr << "ERROR: æ— æ³•å¼€å¯éŸ³é¢‘è®¾å¤‡:" << Mix_GetError() << std::endl;
+		video.release();
+		Mix_Quit();
+		return -1;
+	}
+
+	//åŠ è½½éŸ³é¢‘æ–‡ä»¶
+	music = Mix_LoadMUS(audioName.c_str());
+	if (music == NULL) {
+		std::cerr << "ERROR: æ— æ³•åŠ è½½éŸ³é¢‘æ–‡ä»¶:" << Mix_GetError() << std::endl;
+		video.release();
+		Mix_CloseAudio();
+		Mix_Quit();
+		return -1;
+	}
+
+	// ä¿å­˜è§†é¢‘ä¿¡æ¯
+	videoFPS = video.get(cv::CAP_PROP_FPS);
+	videoWidth = video.get(cv::CAP_PROP_FRAME_WIDTH);
+	videoHeight = video.get(cv::CAP_PROP_FRAME_HEIGHT);
+
+	return 0;
+}
+
 int main(int argc, char* argv[]) {
+#ifdef _WIN32
+	SetConsoleCP(CP_UTF8);
+	SetConsoleOutputCP(CP_UTF8);
+#endif
+
 	std::string configPath = "config.txt";
 	read_config(configPath);
 
 	std::string videoName = "";
-	// »ñÈ¡ÊÓÆµÎÄ¼şÃû³Æ
+	// è·å–è§†é¢‘æ–‡ä»¶åç§°
 	if (argc < 2) {
-		std::cout << "ÇëÊäÈëÊÓÆµÂ·¾¶£º";
+		std::cout << "è¯·è¾“å…¥è§†é¢‘è·¯å¾„ï¼š";
 		getline(std::cin, videoName);
 	} else {
 		videoName += argv[1];

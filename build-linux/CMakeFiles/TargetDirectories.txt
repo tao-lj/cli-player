@@ -1,0 +1,3 @@
+/mnt/c/Users/tlj34/code/gcc/cli-player/build-linux/CMakeFiles/cli-player.dir
+/mnt/c/Users/tlj34/code/gcc/cli-player/build-linux/CMakeFiles/edit_cache.dir
+/mnt/c/Users/tlj34/code/gcc/cli-player/build-linux/CMakeFiles/rebuild_cache.dir

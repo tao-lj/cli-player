@@ -123,10 +123,10 @@ set(CMAKE_MAKEFILE_DEPENDS
   "C:/Program Files/CMake/share/cmake-3.31/Modules/Platform/Windows.cmake"
   "C:/Program Files/CMake/share/cmake-3.31/Modules/Platform/WindowsPaths.cmake"
   "C:/Users/tlj34/code/gcc/cli-player/CMakeLists.txt"
-  "CMakeFiles/3.31.5/CMakeCCompiler.cmake"
-  "CMakeFiles/3.31.5/CMakeCXXCompiler.cmake"
-  "CMakeFiles/3.31.5/CMakeRCCompiler.cmake"
-  "CMakeFiles/3.31.5/CMakeSystem.cmake"
+  "CMakeFiles/3.31.6/CMakeCCompiler.cmake"
+  "CMakeFiles/3.31.6/CMakeCXXCompiler.cmake"
+  "CMakeFiles/3.31.6/CMakeRCCompiler.cmake"
+  "CMakeFiles/3.31.6/CMakeSystem.cmake"
   )
 
 # The corresponding makefile is:
@@ -137,12 +137,12 @@ set(CMAKE_MAKEFILE_OUTPUTS
 
 # Byproducts of CMake generate step:
 set(CMAKE_MAKEFILE_PRODUCTS
-  "CMakeFiles/3.31.5/CMakeSystem.cmake"
-  "CMakeFiles/3.31.5/CMakeCCompiler.cmake"
-  "CMakeFiles/3.31.5/CMakeCXXCompiler.cmake"
-  "CMakeFiles/3.31.5/CMakeRCCompiler.cmake"
-  "CMakeFiles/3.31.5/CMakeCCompiler.cmake"
-  "CMakeFiles/3.31.5/CMakeCXXCompiler.cmake"
+  "CMakeFiles/3.31.6/CMakeSystem.cmake"
+  "CMakeFiles/3.31.6/CMakeCCompiler.cmake"
+  "CMakeFiles/3.31.6/CMakeCXXCompiler.cmake"
+  "CMakeFiles/3.31.6/CMakeRCCompiler.cmake"
+  "CMakeFiles/3.31.6/CMakeCCompiler.cmake"
+  "CMakeFiles/3.31.6/CMakeCXXCompiler.cmake"
   "CMakeFiles/CMakeDirectoryInformation.cmake"
   )
 
