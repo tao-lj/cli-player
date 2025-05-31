@@ -397,9 +397,14 @@ int read_config(std::string filename) {
 
 		size_t equalPos = line.find('=');
 		if (equalPos != std::string::npos) {
-			std::string key = line.substr(0, equalPos);
-			std::string value = line.substr(equalPos + 1);
+			int i = 0;
+			std::string key = "";
+			for (; line[i] != ' ' && line[i] != '='; ++i)
+				key += line[i];
+			for (i = equalPos + 1; line[i] == ' '; ++i);
+			std::string value = line.substr(i);
 			settings[key] = value;
+			std::cout << key << ' ' << value << std::endl;
 		}
 	}
 
