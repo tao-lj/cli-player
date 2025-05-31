@@ -23,7 +23,8 @@ void setRawMode(bool enable) {
 		newt = oldt;
 		newt.c_lflag &= ~(ICANON | ECHO);  // 关闭行缓冲 & 关闭回显
 		tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-	} else {
+	}
+	else {
 		tcsetattr(STDIN_FILENO, TCSANOW, &oldt);  // 恢复原来的终端设置
 	}
 }
@@ -44,26 +45,26 @@ int _getch() {
 		usleep(10000);
 		if (!_kbhit()) return 27;
 
-		char seq[2] = {0};
-		
+		char seq[2] = { 0 };
+
 		if (read(STDIN_FILENO, &seq[0], 1) == 0) return 27;
 		if (read(STDIN_FILENO, &seq[1], 1) == 0) return 27;
 
 		if (seq[0] == '[') {
 			switch (seq[1]) {
-				case 'A': return 72;
-				case 'B': return 80;
-				case 'C': return 77;
-				case 'D': return 75;
-				case 'H': return 71;
-				case 'F': return 79;
-				default: return 27;
+			case 'A': return 72;
+			case 'B': return 80;
+			case 'C': return 77;
+			case 'D': return 75;
+			case 'H': return 71;
+			case 'F': return 79;
+			default: return 27;
 			}
 		}
 
 		return 27;
 	}
-	
+
 	return ch;
 }
 
@@ -126,27 +127,45 @@ void quit(int exitValue) {
 void get_size() {
 #ifdef _WIN32
 
-	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	// 获取控制台输出缓冲区尺寸
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
 
-	if (!GetConsoleScreenBufferInfo(hConsole, &csbi)) {
-		std::cerr << "ERROR: 无法获取控终端尺寸";
-		quit(-1);
+	outSize.width = csbi.dwSize.X;
+	outSize.height = csbi.dwSize.Y << 1;
+
+	// 获取控制台字符尺寸
+	HDC hdc = GetDC(NULL);
+	HFONT hFont = (HFONT)GetCurrentObject(hdc, OBJ_FONT);
+	SelectObject(hdc, hFont);
+	SIZE size;
+	GetTextExtentPoint32(hdc, "A", 1, &size);
+
+	int charWidth = size.cx;
+	int charHeight = size.cy >> 1;
+
+	int windowWidth = charWidth * outSize.width;
+	int windowHeight = charHeight * outSize.height;
+	float aspectRatio = 1.0f * videoWidth / videoHeight;
+
+	if (1.0f * windowWidth / windowHeight >= aspectRatio) {
+		outSize.width = 1.0f * windowHeight * aspectRatio / charWidth;
+	}
+	else {
+		outSize.height = 1.0f * windowWidth / aspectRatio / charHeight;
 	}
 
-	float bufferWidth = csbi.srWindow.Right - csbi.srWindow.Left;
-	float bufferHeight = (csbi.srWindow.Bottom - csbi.srWindow.Top) << 1;
+	outSize.width = MIN(outSize.width, videoWidth);
+	outSize.height = MIN(outSize.height, videoHeight);
 
 #elif __linux__
 
 	struct winsize size;
 
 	ioctl(STDIN_FILENO, TIOCGWINSZ, &size);
-	
+
 	float bufferWidth = size.ws_col;
 	float bufferHeight = size.ws_row << 1;
-
-#endif
 
 	bufferWidth = MIN(bufferWidth, videoWidth);
 	bufferHeight = MIN(bufferHeight, videoHeight);
@@ -154,10 +173,13 @@ void get_size() {
 	if (bufferWidth / videoWidth > bufferHeight / videoHeight) {
 		outSize.height = bufferHeight;
 		outSize.width = bufferHeight * videoWidth / videoHeight;
-	} else {
-		outSize.width = bufferWidth;
-		outSize.height =  bufferHeight *  videoHeight / videoWidth;
 	}
+	else {
+		outSize.width = bufferWidth;
+		outSize.height = bufferHeight * videoHeight / videoWidth;
+	}
+
+#endif
 
 	outSize.height &= ~1;
 }
@@ -200,7 +222,8 @@ int render_frame(cv::Mat& lastFrame, unsigned long long& lastIdx) {
 			}
 		}
 		isOpened = video.retrieve(frame);
-	} else {
+	}
+	else {
 		video.set(cv::CAP_PROP_POS_FRAMES, idx);
 		isOpened = video.read(frame);
 	}
@@ -243,7 +266,8 @@ int render_frame(cv::Mat& lastFrame, unsigned long long& lastIdx) {
 					+ std::to_string(nbgColor[1]) + ';'
 					+ std::to_string(nbgColor[0]) + 'm';
 				bgColor = nbgColor;
-			} else {
+			}
+			else {
 				frame.at<cv::Vec3b>(i, j) = bgColor;
 			}
 
@@ -252,7 +276,8 @@ int render_frame(cv::Mat& lastFrame, unsigned long long& lastIdx) {
 					+ std::to_string(ntxtColor[1]) + ';'
 					+ std::to_string(ntxtColor[0]) + 'm';
 				txtColor = ntxtColor;
-			} else {
+			}
+			else {
 				frame.at<cv::Vec3b>(i + 1, j) = txtColor;
 			}
 			output += "▄";
@@ -288,7 +313,8 @@ void handle_keyboard() {
 		currentTime += skipInterval;
 		if (currentTime < Mix_MusicDuration(music)) {
 			Mix_SetMusicPosition(currentTime);
-		} else {
+		}
+		else {
 			quit(0);
 		}
 		if (!isPaused) {
@@ -299,7 +325,8 @@ void handle_keyboard() {
 		currentTime -= skipInterval;
 		if (currentTime > 0) {
 			Mix_SetMusicPosition(currentTime);
-		} else {
+		}
+		else {
 			currentTime = 0;
 			Mix_SetMusicPosition(currentTime);
 		}
@@ -339,7 +366,8 @@ void play() {
 		handle_keyboard();
 		if (isPaused) {
 			pauseTime = std::chrono::duration<double>(std::chrono::system_clock::now() - startTime).count() - currentTime;
-		} else {
+		}
+		else {
 			currentTime = std::chrono::duration<double>(std::chrono::system_clock::now() - startTime).count() - pauseTime;
 		}
 
@@ -379,17 +407,20 @@ int read_config(std::string filename) {
 	if (settings.find("ffmpegPath") == settings.end()) {
 		std::cerr << "WARNING: 配置文件中缺少 'ffmpegPath' 项，已使用默认值: " << ffmpegPath << std::endl;
 		++missing;
-	} else ffmpegPath = settings["ffmpegPath"];
+	}
+	else ffmpegPath = settings["ffmpegPath"];
 
 	if (settings.find("audioName") == settings.end()) {
 		std::cerr << "WARNING: 配置文件中缺少 'audioName' 项，已使用默认值: " << audioName << std::endl;
 		++missing;
-	} else audioName = settings["audioName"];
+	}
+	else audioName = settings["audioName"];
 
 	if (settings.find("eps") == settings.end()) {
 		std::cerr << "WARNING: 配置文件中缺少 'eps' 项，已使用默认值: " << eps << std::endl;
 		++missing;
-	} else {
+	}
+	else {
 		try {
 			eps = std::stod(settings["eps"]);
 		}
@@ -400,7 +431,8 @@ int read_config(std::string filename) {
 
 	if (settings.find("skipInterval") == settings.end()) {
 		std::cerr << "WARNING: 配置文件中缺少 'skipInterval' 项，已使用默认值: " << skipInterval << std::endl;
-	} else {
+	}
+	else {
 		try {
 			skipInterval = std::stod(settings["skipInterval"]);
 		}
@@ -485,7 +517,8 @@ int main(int argc, char* argv[]) {
 	if (argc < 2) {
 		std::cout << "请输入视频路径：";
 		getline(std::cin, videoName);
-	} else {
+	}
+	else {
 		videoName += argv[1];
 	}
 
@@ -502,4 +535,3 @@ int main(int argc, char* argv[]) {
 
 	return 0;
 }
-

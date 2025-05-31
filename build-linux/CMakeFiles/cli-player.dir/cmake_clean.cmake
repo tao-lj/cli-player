@@ -1,4 +1,5 @@
 file(REMOVE_RECURSE
+  "CMakeFiles/cli-player.dir/link.d"
   "CMakeFiles/cli-player.dir/main.cpp.o"
   "CMakeFiles/cli-player.dir/main.cpp.o.d"
   "cli-player"
