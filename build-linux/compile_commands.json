@@ -1,8 +1,0 @@
-[
-{
-  "directory": "/mnt/c/Users/tlj34/code/gcc/cli-player/build-linux",
-  "command": "/usr/bin/c++  -I/usr/include/SDL2 -I/usr/include/opus -I/usr/include/opencv4 -I/mnt/c/Users/tlj34/code/gcc/cli-player  -Wall -g -Ofast -flto -march=native -funroll-loops -std=gnu++17 -o CMakeFiles/cli-player.dir/main.cpp.o -c /mnt/c/Users/tlj34/code/gcc/cli-player/main.cpp",
-  "file": "/mnt/c/Users/tlj34/code/gcc/cli-player/main.cpp",
-  "output": "CMakeFiles/cli-player.dir/main.cpp.o"
-}
-]
