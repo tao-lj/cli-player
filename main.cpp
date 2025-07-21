@@ -238,7 +238,7 @@ int render_frame(cv::Mat& lastFrame, unsigned long long& lastIdx) {
 
 	// 如果尺寸改变则清屏
 	if (lastFrame.cols != width || lastFrame.rows != height) {
-		lastFrame = cv::Mat(width, height, CV_8UC1, cv::Scalar(0, 0, 0));
+		lastFrame = cv::Mat(height, width, CV_8UC3, cv::Scalar(0, 0, 0));
 		puts("\33c");
 	}
 
